@@ -1,0 +1,123 @@
+import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+let app: ElectronApplication;
+let page: Page;
+let directory: string;
+const root = path.resolve('.');
+async function launch() {
+  app = await electron.launch({ args: [root, '--no-sandbox', '--disable-gpu'], env: { ...process.env, NATURALWRITE_DATA_DIR: directory } });
+  page = await app.firstWindow();
+  await expect(page.getByLabel('Document title', { exact: true })).toBeVisible();
+}
+test.beforeEach(async () => { directory = await mkdtemp(path.join(tmpdir(), 'naturalwrite-e2e-')); await launch(); });
+test.afterEach(async () => { if (app) await app.close(); await rm(directory, { recursive: true, force: true }); });
+
+test('review, consent, save, export and reopen a document using real SQLite', async () => {
+  const editor = page.getByRole('textbox', { name: 'Writing editor', exact: true });
+  await page.getByLabel('Document title', { exact: true }).fill('My learning journal');
+  await editor.fill('I think teh lesson helped me recieve useful feedback. I worked in order to understand it.');
+  await expect(page.getByRole('slider', { name: 'Preservation strength' })).toHaveValue('85');
+  await page.getByRole('button', { name: 'Suggest improvements', exact: true }).click();
+  await expect(page.locator('.revision-card')).toHaveCount(2);
+  await expect(editor).toHaveValue(/teh lesson/);
+  const first = page.locator('.revision-card').first();
+  await first.getByRole('button', { name: 'Give style feedback' }).click();
+  await first.getByRole('button', { name: 'Save feedback only', exact: true }).click();
+  await expect.poll(() => page.evaluate(async () => (await window.naturalwrite.load()).profiles[0].feedback.length)).toBe(1);
+  let profile = await page.evaluate(async () => (await window.naturalwrite.load()).profiles[0]);
+  expect(profile.approvedExpressions).toEqual([]);
+  expect(profile.samples).toHaveLength(0);
+  await first.getByRole('button', { name: 'Give style feedback' }).click();
+  await first.getByRole('button', { name: 'Save this expression as a preference' }).click();
+  await first.getByLabel('Expression to remember').fill('I think');
+  await first.getByRole('checkbox').check();
+  await first.getByRole('button', { name: 'Save feedback & preference', exact: true }).click();
+  await expect.poll(() => page.evaluate(async () => (await window.naturalwrite.load()).profiles[0].approvedExpressions)).toContain('I think');
+  await page.getByRole('button', { name: 'Suggest improvements', exact: true }).click();
+  await expect(page.locator('.revision-card')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Accept suggestion 1', exact: true }).click();
+  await page.getByRole('button', { name: 'Keep original suggestion 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply accepted changes', exact: true }).click();
+  const finalText = 'I think the lesson helped me recieve useful feedback. I worked in order to understand it.';
+  await expect(editor).toHaveValue(finalText);
+  await expect(page.getByText('Saved on this device', { exact: true })).toBeVisible();
+  const exportPath = path.join(directory, 'journal.txt');
+  await app.evaluate(({ dialog }, filePath) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath }); }, exportPath);
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await expect.poll(() => readFile(exportPath, 'utf8').catch(() => '')).toBe(finalText);
+  await app.close();
+  await launch();
+  await expect(page.getByLabel('Document title', { exact: true })).toHaveValue('My learning journal');
+  await expect(page.getByRole('textbox', { name: 'Writing editor', exact: true })).toHaveValue(finalText);
+  const header = await readFile(path.join(directory, 'naturalwrite.sqlite'));
+  expect(header.subarray(0, 16).toString()).toBe('SQLite format 3\u0000');
+});
+
+test('import samples, train, edit characteristics and keep profiles separate', async () => {
+  const files: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const file = path.join(directory, `sample-${i + 1}.txt`);
+    await writeFile(file, `I think lesson ${i + 1} helped me understand business decisions. For example, we compared two small companies.\n\nI learned that careful planning matters. In my opinion, simple explanations make difficult ideas easier to understand.`);
+    files.push(file);
+  }
+  await app.evaluate(({ dialog }, filePaths) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths }); }, files);
+  await page.getByRole('button', { name: 'Train my writing style', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Train my profile', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Import documents', exact: true }).click();
+  await expect(page.locator('.sample-card')).toHaveCount(5);
+  await page.getByRole('button', { name: 'Train my profile', exact: true }).click();
+  await expect(page.getByLabel('Writing style summary', { exact: true })).not.toHaveValue('');
+  await page.getByLabel('Tone and voice', { exact: true }).fill('Personal and direct, using simple English.');
+  await page.getByRole('button', { name: 'Save characteristics', exact: true }).click();
+  await expect.poll(() => page.evaluate(async () => (await window.naturalwrite.load()).profiles[0].characteristics.tone)).toBe('Personal and direct, using simple English.');
+  await page.getByRole('button', { name: 'Writing profiles', exact: true }).click();
+  await page.getByRole('button', { name: 'New profile', exact: true }).click();
+  await page.getByLabel('Profile name', { exact: true }).fill('Personal reflections');
+  await page.getByLabel('Writing category', { exact: true }).selectOption('Personal Reflections');
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click();
+  await expect(page.getByLabel('Active writing profile')).toHaveValue(/.+/);
+  await expect.poll(() => page.evaluate(async () => (await window.naturalwrite.load()).profiles.length)).toBe(2);
+  const state = await page.evaluate(() => window.naturalwrite.load());
+  expect(state.profiles.find(p => p.id === state.activeProfileId)?.samples).toHaveLength(0);
+  expect(state.profiles[0].samples).toHaveLength(5);
+  expect(state.profiles[0].trainedAt).toBeTruthy();
+  await page.getByRole('button', { name: 'Train my writing style', exact: true }).click();
+  await page.getByLabel('Sample title', { exact: true }).fill('My own reflection');
+  await page.getByLabel('Your writing sample', { exact: true }).fill('I write in a straightforward way. This reflection is my own work.');
+  await page.getByRole('button', { name: 'Add writing sample', exact: true }).click();
+  await expect(page.locator('.sample-card')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Remove writing sample', exact: true }).click();
+  await page.getByRole('button', { name: 'Remove sample', exact: true }).click();
+  await expect(page.locator('.sample-card')).toHaveCount(0);
+});
+
+test('settings persist, changed drafts discard suggestions, and the renderer is isolated', async () => {
+  const editor = page.getByRole('textbox', { name: 'Writing editor', exact: true });
+  const slider = page.getByRole('slider', { name: 'Preservation strength' });
+  await slider.focus();
+  await slider.press('Home');
+  await expect(slider).toHaveValue('0');
+  await expect.poll(() => page.evaluate(async () => (await window.naturalwrite.load()).profiles[0].preferences.strength)).toBe(0);
+  await editor.fill('I read teh notes in order to understand each and every example.');
+  await page.getByRole('button', { name: 'Suggest improvements', exact: true }).click();
+  await expect(page.locator('.revision-card')).toHaveCount(3);
+  await editor.fill('A new draft changes the original anchors.');
+  await expect(page.locator('.revision-card')).toHaveCount(0);
+  await page.getByLabel('Writing rule', { exact: true }).fill('Use straightforward English.');
+  await page.getByRole('button', { name: 'Add writing rule', exact: true }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByLabel('Model name', { exact: true }).fill('my-local-model');
+  await page.getByRole('button', { name: 'Save revision settings', exact: true }).click();
+  await expect.poll(() => page.evaluate(async () => (await window.naturalwrite.load()).provider.model)).toBe('my-local-model');
+  expect(await page.evaluate(() => typeof (window as any).require)).toBe('undefined');
+  expect(await page.evaluate(() => typeof (window as any).process)).toBe('undefined');
+  await app.close();
+  await launch();
+  await expect(page.getByRole('slider', { name: 'Preservation strength' })).toHaveValue('0');
+  const loaded = await page.evaluate(() => window.naturalwrite.load());
+  expect(loaded.profiles[0].preferences.rules).toContain('Use straightforward English.');
+  expect(loaded.provider.model).toBe('my-local-model');
+});
