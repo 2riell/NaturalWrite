@@ -62,6 +62,9 @@ jobs:
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      - name: Open packaged Mac app
+        if: runner.os == 'macOS'
+        run: node scripts/smoke-packaged.cjs release/installers/mac${{ matrix.arch == 'arm64' && '-arm64' || '' }}/NaturalWrite.app/Contents/MacOS/NaturalWrite
       - uses: actions/upload-artifact@v4
         with:
           name: NaturalWrite-${{ matrix.platform }}-${{ matrix.arch }}
