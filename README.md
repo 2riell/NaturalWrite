@@ -2,6 +2,10 @@
 
 NaturalWrite helps you review your writing while keeping your own wording and voice. This is version 0.1.0, an unsigned development preview for Windows x64 and macOS (Apple silicon and Intel).
 
+## Download
+
+Download ready-to-run apps from [GitHub Releases](https://github.com/2riell/NaturalWrite/releases). Expand **Assets** on the preview release and choose your Mac architecture or the Windows setup EXE. The automatic **Source code** downloads are not installers.
+
 ## Start using the app
 
 - **Windows:** extract the entire Windows ZIP, open its folder, and run `NaturalWrite.exe`. Keep the other files beside the executable. If a setup EXE is included, it installs the same app for your user account.
