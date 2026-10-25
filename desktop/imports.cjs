@@ -36,10 +36,10 @@ async function readPdf(bytes) {
       useSystemFonts: false,
       disableFontFace: true,
       useWorkerFetch: false,
-      cMapUrl: path.join(pdfDirectory, 'cmaps') + path.sep,
+      cMapUrl: path.join(pdfDirectory, 'cmaps').replaceAll('\\', '/') + '/',
       cMapPacked: true,
-      standardFontDataUrl: path.join(pdfDirectory, 'standard_fonts') + path.sep,
-      wasmUrl: path.join(pdfDirectory, 'wasm') + path.sep,
+      standardFontDataUrl: path.join(pdfDirectory, 'standard_fonts').replaceAll('\\', '/') + '/',
+      wasmUrl: path.join(pdfDirectory, 'wasm').replaceAll('\\', '/') + '/',
       verbosity: 0,
     });
     const document = await loadingTask.promise;
