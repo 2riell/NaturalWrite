@@ -1,0 +1,44 @@
+appId: app.naturalwrite.desktop
+productName: NaturalWrite
+directories:
+  output: release/installers
+  buildResources: assets
+files:
+  - dist/**
+  - desktop/**
+  - core/**
+  - package.json
+  - '!**/*.test.*'
+  - '!**/*.spec.*'
+  - '!node_modules/@napi-rs/canvas/**'
+  - '!node_modules/@napi-rs/canvas-*/**'
+asar: true
+npmRebuild: false
+afterSign: scripts/notarize.cjs
+mac:
+  category: public.app-category.productivity
+  icon: assets/icon.icns
+  minimumSystemVersion: '12.0'
+  hardenedRuntime: true
+  entitlements: assets/entitlements.mac.plist
+  entitlementsInherit: assets/entitlements.mac.plist
+  target:
+    - dmg
+    - zip
+  artifactName: NaturalWrite-${version}-macOS-${arch}.${ext}
+win:
+  icon: assets/icon.ico
+  target: nsis
+  artifactName: NaturalWrite-${version}-Windows-${arch}-Setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: NaturalWrite
+  deleteAppDataOnUninstall: false
+portable:
+  artifactName: NaturalWrite-${version}-Windows-${arch}-Portable.${ext}
+  requestExecutionLevel: user
+publish: null
