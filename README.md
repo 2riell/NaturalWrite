@@ -6,6 +6,12 @@ NaturalWrite helps you review your writing while keeping your own wording and vo
 
 Download ready-to-run apps from [GitHub Releases](https://github.com/2riell/NaturalWrite/releases). Expand **Assets** on the preview release and choose your Mac architecture or the Windows setup EXE. The automatic **Source code** downloads are not installers.
 
+Ready-to-run preview downloads (no Node.js or source setup needed):
+
+- [Mac — Apple silicon (DMG)](https://github.com/2riell/NaturalWrite/releases/download/v0.1.0-preview.3/NaturalWrite-0.1.0-macOS-arm64.dmg)
+- [Mac — Intel (DMG)](https://github.com/2riell/NaturalWrite/releases/download/v0.1.0-preview.3/NaturalWrite-0.1.0-macOS-x64.dmg)
+- [Windows x64 installer (EXE)](https://github.com/2riell/NaturalWrite/releases/download/v0.1.0-preview.3/NaturalWrite-0.1.0-Windows-x64-Setup.exe)
+
 ## Start using the app
 
 - **Windows:** extract the entire Windows ZIP, open its folder, and run `NaturalWrite.exe`. Keep the other files beside the executable. If a setup EXE is included, it installs the same app for your user account.

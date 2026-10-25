@@ -10,3 +10,7 @@
 - AI integration was tested with deterministic mocks, not a live paid provider.
 
 These are development previews, not a production release.
+
+## Native release validation — v0.1.0-preview.3
+
+GitHub run https://github.com/2riell/NaturalWrite/actions/runs/40178108374 passed all 46 tests and production builds on Windows, Intel macOS, and Apple silicon macOS. Native installers were built. Both packaged Mac apps passed an automated launch check that opened the editor and loaded SQLite storage. This does not establish Gatekeeper approval for downloaded files, interactive installation, or Keychain/API-key operation. The previously documented additional Linux desktop test timeout remains unresolved.
